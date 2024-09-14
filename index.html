@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTDPCE</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+</head>
+<body>
+
+    <header>
+        <div class="header-content">
+            <img src="logo.png" alt="Logo de la Plateforme" class="logo">
+            <h1>MTDPCE</h1>
+            <nav>
+                <ul>
+                    <li><a href="#" onclick="showMap('map1')">ASSOCIATIONS</a></li>
+                    <li><a href="#" onclick="showMap('map2')">ENTREPRISES</a></li>
+                    <li><a href="#" onclick="showMap('map3')">TEAMS</a></li>
+                </ul>
+            </nav>
+            <div class="search-bar">
+                <input type="text" id="search" placeholder="Rechercher un lieu...">
+                <button onclick="searchLocation()">Rechercher</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div id="map1" class="map-container"></div>
+        <div id="map2" class="map-container" style="display: none;"></div>
+        <div id="map3" class="map-container" style="display: none;"></div>
+
+        <div id="table-container">
+            <!-- <h2>Détails des objets de la carte</h2> -->
+            <table id="mapTable">
+                <thead>
+                    <tr>
+                        <th>Nom</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <!-- Pagination -->
+            <div id="pagination">
+                <button id="prevPage" onclick="prevPage()">Précédent</button>
+                <span id="pageNumber"></span>
+                <button id="nextPage" onclick="nextPage()">Suivant</button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 MTDPCE. Tous droits réservés au groupe 5 IBAM</p>
+    </footer>
+
+    <script>
+        let map1, map2, map3;
+        let currentMap = 'map1';
+        let locations = [
+            {name: 'Tour Eiffel', lat: 48.8584, lon: 2.2945, map: 'map1'},
+            {name: 'Louvre', lat: 48.8606, lon: 2.3376, map: 'map1'},
+            {name: 'Big Ben', lat: 51.5007, lon: -0.1246, map: 'map2'},
+            {name: 'London Eye', lat: 51.5033, lon: -0.1195, map: 'map2'},
+            {name: 'Statue of Liberty', lat: 40.6892, lon: -74.0445, map: 'map3'},
+            {name: 'Central Park', lat: 40.7851, lon: -73.9683, map: 'map3'},
+        ];
+
+        // Pagination variables
+        let currentPage = 1;
+        const rowsPerPage = 3;
+
+        function initMap(mapId, lat, lon, zoom) {
+            let map = L.map(mapId).setView([lat, lon], zoom);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            locations.filter(loc => loc.map === mapId).forEach(loc => {
+                L.marker([loc.lat, loc.lon]).addTo(map)
+                    .bindPopup(loc.name);
+            });
+
+            return map;
+        }
+
+        function showMap(mapId) {
+            document.querySelectorAll('.map-container').forEach(map => map.style.display = 'none');
+            document.getElementById(mapId).style.display = 'block';
+            currentMap = mapId;
+            currentPage = 1;
+            updateTable(mapId);
+        }
+
+        function updateTable(mapId) {
+            const tableBody = document.querySelector('#mapTable tbody');
+            tableBody.innerHTML = '';
+
+            const filteredLocations = locations.filter(loc => loc.map === mapId);
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedLocations = filteredLocations.slice(start, end);
+
+            paginatedLocations.forEach(loc => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td class="clickable">${loc.name}</td><td>${loc.lat}</td><td>${loc.lon}</td>`;
+                row.onclick = function() {
+                    redirectToLocation(loc.lat, loc.lon);
+                };
+                tableBody.appendChild(row);
+            });
+
+            // Mise à jour du numéro de page
+            document.getElementById('pageNumber').textContent = `Page ${currentPage} / ${Math.ceil(filteredLocations.length / rowsPerPage)}`;
+
+            // Activer/Désactiver les boutons de pagination
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === Math.ceil(filteredLocations.length / rowsPerPage);
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                updateTable(currentMap);
+            }
+        }
+
+        function nextPage() {
+            const totalRows = locations.filter(loc => loc.map === currentMap).length;
+            if (currentPage < Math.ceil(totalRows / rowsPerPage)) {
+                currentPage++;
+                updateTable(currentMap);
+            }
+        }
+
+        function searchLocation() {
+            const query = document.getElementById('search').value.toLowerCase();
+            const result = locations.find(loc => loc.name.toLowerCase().includes(query) && loc.map === currentMap);
+
+            if (result) {
+                redirectToLocation(result.lat, result.lon);
+                alert(`Lieu trouvé : ${result.name}`);
+            } else {
+                alert('Lieu non trouvé sur cette carte');
+            }
+        }
+
+        function redirectToLocation(lat, lon) {
+            if (currentMap === 'map1') map1.setView([lat, lon], 14);
+            if (currentMap === 'map2') map2.setView([lat, lon], 14);
+            if (currentMap === 'map3') map3.setView([lat, lon], 14);
+        }
+
+        // Initialisation des cartes
+        document.addEventListener('DOMContentLoaded', function () {
+            map1 = initMap('map1', 48.8566, 2.3522, 13);
+            map2 = initMap('map2', 51.5074, -0.1278, 13);
+            map3 = initMap('map3', 40.7128, -74.0060, 13);
+
+            updateTable('map1');
+        });
+    </script>
+</body>
+</html>
